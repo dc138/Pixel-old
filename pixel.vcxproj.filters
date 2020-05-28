@@ -4,11 +4,11 @@
     <ClInclude Include="pixel\pixel.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp" />
-  </ItemGroup>
-  <ItemGroup>
     <None Include="README.md" />
     <None Include=".gitignore" />
     <None Include="LICENSE.md" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="demo.cpp" />
   </ItemGroup>
 </Project>

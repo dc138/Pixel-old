@@ -1,3 +1,10 @@
+/*
+
+	Simple demo file that showcases the use of
+	basic rendering rutines.
+
+*/
+
 #pragma warning(disable:4244)
 
 #include <pixel.hpp>
