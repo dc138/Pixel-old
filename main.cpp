@@ -3,10 +3,6 @@
 #include <pixel.hpp>
 using namespace pixel;
 
-void go(int16_t x, int16_t y) {
-	SetConsoleCursorPosition(GetStdHandle(STD_OUTPUT_HANDLE), { x, y });
-}
-
 int main() {
 	Window window(vu2d(500, 500), 2, vu2d(5, 5), "Test Window", DrawingMode::FULL_ALPHA);
 
