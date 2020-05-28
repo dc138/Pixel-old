@@ -1,0 +1,6 @@
+﻿  main.cpp
+  Generating code
+  Previous IPDB not found, fall back to full compilation.
+  All 313 functions were compiled because no usable IPDB/IOBJ from previous compilation was found.
+  Finished generating code
+  pixel.vcxproj -> C:\Users\Antonio\source\repos\pixel\x64\Release\pixel.exe
