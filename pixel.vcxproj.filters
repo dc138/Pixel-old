@@ -7,7 +7,8 @@
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="LICENSE" />
     <None Include="README.md" />
+    <None Include=".gitignore" />
+    <None Include="LICENSE.md" />
   </ItemGroup>
 </Project>
