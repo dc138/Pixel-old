@@ -28,6 +28,7 @@
 
 #pragma once
 #pragma comment(lib, "opengl32.lib")
+#pragma comment(lib, "gdiplus.lib")
 
 #include <string>
 #include <chrono>
@@ -35,8 +36,19 @@
 #include <algorithm>
 #include <istream>
 #include <atomic>
+#include <vector>
 
 #include <Windows.h>
+#include <gdiplus.h>
+
+static struct GDIPlusStartup {
+	GDIPlusStartup() {
+		Gdiplus::GdiplusStartupInput startupInput;
+		ULONG_PTR	token;
+		Gdiplus::GdiplusStartup(&token, &startupInput, NULL);
+	};
+} gdistartup;
+
 #include <gl/GL.h>
 
 typedef BOOL(WINAPI wglSwapInterval_t) (int interval);
@@ -166,15 +178,9 @@ namespace pixel {
 			struct { uint8_t r; uint8_t g; uint8_t b; uint8_t a; };
 		};
 
-		Pixel() {
-			r = 0; g = 0; b = 0; a = 0xFF;
-		}
-		Pixel(uint32_t p) {
-			n = p;
-		}
-		Pixel(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 0xFF) {
-			n = red | (green << 8) | (blue << 16) | (alpha << 24);
-		}
+		Pixel();
+		Pixel(uint32_t p);
+		Pixel(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha = 0xFF);
 
 		inline bool operator==(const Pixel& p) const {
 			return n == p.n;
@@ -221,12 +227,13 @@ namespace pixel {
 		return Pixel(rand() % 255, rand() % 255, rand() % 255, rand() % 255);
 	}
 
-	class Canvas {
+	class Sprite {
 
 	public:
-		Canvas();
-		Canvas(vu2d size);
-		~Canvas();
+		Sprite();
+		Sprite(vu2d size);
+		Sprite(const std::string& filename);
+		~Sprite();
 
 		friend class Window;
 
@@ -240,10 +247,15 @@ namespace pixel {
 		Pixel* pBuffer = nullptr;
 		uint32_t pBufferId = 0;
 
+		vf2d pos[4] = { { 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f} };
+		vf2d uv[4] = { { 0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f} };
+		float w[4] = { 1, 1, 1, 1 };
+		Pixel tint;
+
 	private:
 		void pCreateTexture();
 		void pDeleteTexture();
-		void pUpdateTexture();
+		void pUploadTexture();
 		void pApplyTexture();
 	};
 
@@ -358,7 +370,8 @@ namespace pixel {
 		void pUpdateViewport();
 
 	private:
-		Canvas pCanvas;
+		Sprite pCanvas;
+		std::vector<Sprite*> sprites;
 		pixel::DrawingMode pDrawingMode = pixel::DrawingMode::NO_ALPHA;
 
 		HDC pDevideContext = NULL;
@@ -378,16 +391,59 @@ ____________________________
 
 namespace pixel {
 
-	pixel::Canvas::Canvas() {
+	inline std::wstring s2ws(std::string string) {
+		int count = MultiByteToWideChar(CP_UTF8, 0, string.c_str(), -1, NULL, 0);
+		wchar_t* buffer = new wchar_t[count];
+
+		MultiByteToWideChar(CP_UTF8, 0, string.c_str(), -1, buffer, count);
+		std::wstring wide(buffer);
+		
+		delete[] buffer;
+		return wide;
+	}
+
+	inline Pixel::Pixel() {
+		r = 0; g = 0; b = 0; a = 0xFF;
+	}
+
+	inline Pixel::Pixel(uint32_t p) {
+		n = p;
+	}
+
+	inline Pixel::Pixel(uint8_t red, uint8_t green, uint8_t blue, uint8_t alpha) {
+		n = red | (green << 8) | (blue << 16) | (alpha << 24);
+	}
+
+	inline Sprite::Sprite() {
 		pSize = vu2d(0, 0);
 	}
 
-	Canvas::Canvas(vu2d size): pSize(size) {
+	inline Sprite::Sprite(vu2d size): pSize(size) {
 		pBuffer = new Pixel[size.prod()];
 		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
 	}
 
-	Canvas::~Canvas() {
+	inline Sprite::Sprite(const std::string& filename) {
+		Gdiplus::Bitmap* bmp = Gdiplus::Bitmap::FromFile(s2ws(filename).c_str());
+		Gdiplus::Color color;
+
+		if(bmp->GetLastStatus() != Gdiplus::Ok) {
+			pSize = vu2d(0, 0);
+			return;
+		}
+
+		pSize = vu2d(bmp->GetWidth(), bmp->GetHeight());
+		pBuffer = new Pixel[pSize.prod()];
+	
+		for(uint32_t i = 0; i < pSize.prod(); i++) {
+			bmp->GetPixel(i % pSize.x, i / pSize.x, &color);
+			pBuffer[i] = Pixel(color.GetRed(), color.GetGreen(), color.GetBlue(), color.GetAlpha());
+		}
+
+		delete bmp;
+	}
+
+	inline Sprite::~Sprite() {
 		pDeleteTexture();
 
 		if(pBuffer) {
@@ -395,7 +451,7 @@ namespace pixel {
 		}
 	}
 
-	void pixel::Canvas::Resize(vu2d size) {
+	inline void Sprite::Resize(vu2d size) {
 		if(pBuffer) {
 			delete[] pBuffer;
 		}
@@ -406,11 +462,11 @@ namespace pixel {
 		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
 	}
 
-	void Canvas::Clear() {
+	inline void Sprite::Clear() {
 		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
 	}
 
-	void Canvas::pCreateTexture() {
+	inline void Sprite::pCreateTexture() {
 		glGenTextures(1, &pBufferId);
 		glBindTexture(GL_TEXTURE_2D, pBufferId);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
@@ -418,15 +474,15 @@ namespace pixel {
 		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
 	}
 
-	void Canvas::pDeleteTexture() {
+	inline void Sprite::pDeleteTexture() {
 		glDeleteTextures(1, &pBufferId);
 	}
 
-	void Canvas::pUpdateTexture() {
+	inline void Sprite::pUploadTexture() {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pSize.x, pSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
 	}
 
-	void Canvas::pApplyTexture() {
+	inline void Sprite::pApplyTexture() {
 		glBindTexture(GL_TEXTURE_2D, pBufferId);
 	}
 
@@ -524,7 +580,7 @@ namespace pixel {
 		}
 	}
 
-	LRESULT CALLBACK pixel::Window::pStaticWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	LRESULT CALLBACK Window::pStaticWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		Window* window = nullptr;
 
 		if(uMsg == WM_NCCREATE) {
@@ -544,7 +600,7 @@ namespace pixel {
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 
-	void pixel::Window::pUpdateViewport() {
+	void Window::pUpdateViewport() {
 
 		int32_t ww = pScreenSize.x * pScale;
 		int32_t wh = pScreenSize.y * pScale;
@@ -561,56 +617,56 @@ namespace pixel {
 		pViewPos = (pWindowSize - pViewSize) / 2;
 	}
 
-	bool pixel::Window::ShouldExist() const {
+	inline bool Window::ShouldExist() const {
 		return pShouldExist;
 	}
-	pixel::DrawingMode pixel::Window::DrawingMode() const {
+	inline pixel::DrawingMode Window::DrawingMode() const {
 		return pDrawingMode;
 	}
 
-	vu2d pixel::Window::DrawableSize() const {
+	inline vu2d Window::DrawableSize() const {
 		return pScreenSize - 1;
 	}
-	vu2d pixel::Window::ScreenSize() const {
+	inline vu2d Window::ScreenSize() const {
 		return pScreenSize;
 	}
 
-	vu2d pixel::Window::WindowSize() const {
+	inline vu2d Window::WindowSize() const {
 		return pWindowSize;
 	}
-	vu2d pixel::Window::WindowPos() const {
+	inline vu2d Window::WindowPos() const {
 		return pWindowPos;
 	}
 
-	vu2d pixel::Window::MousePos() const {
+	inline vu2d Window::MousePos() const {
 		return pMousePos;
 	}
-	uint32_t pixel::Window::MouseWheel() const {
+	inline uint32_t Window::MouseWheel() const {
 		return pMouseWheel;
 	}
 
-	Button pixel::Window::MouseLeft() const {
+	inline Button Window::MouseLeft() const {
 		return pMouseButtons[0];
 	}
-	Button pixel::Window::MouseRight() const {
+	inline Button Window::MouseRight() const {
 		return pMouseButtons[1];
 	}
-	Button pixel::Window::MouseMiddle() const {
+	inline Button Window::MouseMiddle() const {
 		return pMouseButtons[2];
 	}
 
-	Button pixel::Window::KeyboardKey(Key key) const {
+	inline Button Window::KeyboardKey(Key key) const {
 		return pKeyboardKeys[(uint8_t) key];
 	}
 
-	float pixel::Window::ElapsedTime() const {
+	inline float Window::ElapsedTime() const {
 		return pElapsedTime;
 	}
-	uint32_t pixel::Window::FPS() const {
+	inline uint32_t Window::FPS() const {
 		return pFrameRate;
 	}
 
-	void pixel::Window::pCreateWindow() {
+	void Window::pCreateWindow() {
 
 		WNDCLASS wc;
 
@@ -671,10 +727,9 @@ namespace pixel {
 		}
 
 		SetWindowTextA(pHwnd, pWindowTittle.c_str());
-
 	}
 
-	void pixel::Window::pMapKeyboard() {
+	void Window::pMapKeyboard() {
 		pKeyMap[0x00] = (uint8_t) Key::NONE;
 
 		pKeyMap[0x41] = (uint8_t) Key::A;
@@ -757,7 +812,7 @@ namespace pixel {
 		pKeyMap[VK_DECIMAL] = (uint8_t) Key::NP_DECIMAL;
 	}
 
-	pixel::Window::Window(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, pixel::DrawingMode mode, bool fullScreen, bool vsync) {
+	Window::Window(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, pixel::DrawingMode mode, bool fullScreen, bool vsync) {
 
 		if(scale <= 0 || size.x <= 0 || size.y <= 0) {
 			throw std::runtime_error("Invalid screen proportions.");
@@ -797,10 +852,10 @@ namespace pixel {
 		pClock2 = std::chrono::system_clock::now();
 
 		pCanvas.pCreateTexture();
-		pCanvas.pUpdateTexture();
+		pCanvas.pUploadTexture();
 	}
 
-	void pixel::Window::pCreateDevice() {
+	void Window::pCreateDevice() {
 
 		pDevideContext = GetDC(pHwnd);
 
@@ -828,23 +883,23 @@ namespace pixel {
 		if(wglSwapInterval && !pVsync) wglSwapInterval(0);
 	}
 
-	void pixel::Window::pDestroyDevice() {
+	inline void Window::pDestroyDevice() {
 		wglDeleteContext(pRenderContext);
 	}
 
-	void pixel::Window::Close() {
+	inline void Window::Close() {
 		PostMessageW(pHwnd, WM_CLOSE, 0, 0);
 	}
 
-	void pixel::Window::SetName(const std::string& name) {
+	inline void Window::SetName(const std::string& name) {
 		pWindowName = name;
 	}
 
-	void pixel::Window::SetDrawingMode(pixel::DrawingMode mode) {
+	inline void Window::SetDrawingMode(pixel::DrawingMode mode) {
 		pDrawingMode = mode;
 	}
 
-	void pixel::Window::Update() {
+	void Window::Update() {
 
 		pClock2 = std::chrono::system_clock::now();
 		pElapsedTimer = pClock2 - pClock1;
@@ -921,7 +976,7 @@ namespace pixel {
 		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
 
 		pCanvas.pApplyTexture();
-		pCanvas.pUpdateTexture();
+		pCanvas.pUploadTexture();
 
 		glBegin(GL_QUADS);
 		glColor4ub(255, 255, 255, 255);
@@ -938,11 +993,11 @@ namespace pixel {
 		SwapBuffers(pDevideContext);
 	}
 
-	void Window::Clear() {
+	inline void Window::Clear() {
 		pCanvas.Clear();
 	}
 
-	void Window::Draw(const vu2d& pos, const Pixel& pixel) {
+	inline void Window::Draw(const vu2d& pos, const Pixel& pixel) {
 		if((pos.y * pScreenSize.x + pos.x) > pScreenSize.prod()) return;
 
 		if(pos.x < 0) return;
@@ -970,7 +1025,7 @@ namespace pixel {
 		}
 	}
 
-	void pixel::Window::DrawLine(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
+	void Window::DrawLine(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
 		int32_t x, y, dx, dy, dx1, dy1, px, py, xe, ye, i;
 		dx = pos2.x - pos1.x; dy = pos2.y - pos1.y;
 
@@ -1206,7 +1261,7 @@ namespace pixel {
 				e1 += dy1;
 				while(e1 >= dx1) {
 					e1 -= dx1;
-					if(changed1) { t1xp = signx1; break; } else          goto next3;
+					if(changed1) { t1xp = signx1; break; } else goto next3;
 				}
 				if(changed1) break;
 				else   	   	  t1x += signx1;

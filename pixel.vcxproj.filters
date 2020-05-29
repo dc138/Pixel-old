@@ -9,6 +9,8 @@
     <None Include="LICENSE.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="demo.cpp" />
+    <ClCompile Include="Demos\randomlines.cpp" />
+    <ClCompile Include="Demos\gravitation.cpp" />
+    <ClCompile Include="demos\sprites.cpp" />
   </ItemGroup>
 </Project>

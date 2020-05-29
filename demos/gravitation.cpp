@@ -1,7 +1,8 @@
 /*
 
 	Simple demo file that showcases the use of
-	basic rendering rutines.
+	basic rendering rutines with a gravitational
+	simulation of two bodies.
 
 */
 
@@ -11,21 +12,21 @@
 using namespace pixel;
 
 int main() {
-	Window window(vu2d(500, 500), 2, vu2d(5, 5), "Test Window", DrawingMode::FULL_ALPHA);
+	Window window(vu2d(500, 500), 2, vu2d(500, 5), "Gravitation", DrawingMode::NO_ALPHA);
 
-	float px1 = 150, py1 = 150;
-	float sx1 = 0, sy1 = 10;
+	float px1 = 250, py1 = 250;
+	float sx1 = 0, sy1 = 0;
 	float ax1 = 0, ay1 = 0;
 	float fx1 = 0, fy1 = 0;
-	float m1 = 10000, d1 = 0.001f;
+	float m1 = 10000, d1 = 0.005f;
 
-	float px2 = 350, py2 = 350;
-	float sx2 = 0, sy2 = -10;
+	float px2 = 350, py2 = 250;
+	float sx2 = 0, sy2 = -30;
 	float ax2 = 0, ay2 = 0;
 	float fx2 = 0, fy2 = 0;
-	float m2 = 10000, d2 = 0.001f;
+	float m2 = 100, d2 = 0.05f;
 
-	float g = 10, s = 1;
+	float g = 10, s = 2;
 
 	float dx = 0, dy = 0;
 	float r = 0, f = 0, t = 0;
@@ -76,4 +77,6 @@ int main() {
 
 		window.Update();
 	}
+
+	return 0;
 }
