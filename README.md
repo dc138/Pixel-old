@@ -1,6 +1,6 @@
 <img src="pixel.jpg" width=1000>
 
-# The pixel Library
+# The pixel Library <img src=https://img.shields.io/badge/License-MIT-brightgreen> <img src=https://img.shields.io/badge/Version-1.2-blue>
 
 This is a **single file, object oriented** library to more easily 
 create *fast* **graphical C++** applications that abstracts the 
