@@ -27,8 +27,21 @@
 */
 
 #pragma once
-#pragma comment(lib, "opengl32.lib")
-#pragma comment(lib, "gdiplus.lib")
+
+#ifdef _WIN64
+	#define PIXEL_WIN_64
+#elif defined(_WIN32)
+	#define PIXEL_WIN_32
+#endif
+
+#ifdef _MSC_VER
+	#pragma comment(lib, "opengl32.lib")
+	#pragma comment(lib, "gdiplus.lib")
+	#pragma comment(lib, "User32.lib")
+	#pragma comment(lib, "Gdi32.lib")
+#elif
+	#error "Please add these libraries to your linker input and comment out this line"
+#endif
 
 #include <string>
 #include <chrono>
@@ -37,17 +50,18 @@
 #include <istream>
 #include <atomic>
 #include <vector>
+#include <memory>
 
 #include <Windows.h>
 #include <gdiplus.h>
 
-static struct GDIPlusStartup {
-	GDIPlusStartup() {
+static struct GdipStart {
+	GdipStart() {
 		Gdiplus::GdiplusStartupInput startupInput;
-		ULONG_PTR	token;
+		ULONG_PTR token;
 		Gdiplus::GdiplusStartup(&token, &startupInput, NULL);
 	};
-} gdistartup;
+} gdistart;
 
 #include <gl/GL.h>
 
@@ -248,19 +262,16 @@ namespace pixel {
 		Pixel* pBuffer = nullptr;
 		uint32_t pBufferId = 0;
 
+		vf2d pPos[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f) };
+		vf2d pUv[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 1.0f), vf2d(1.0f, 1.0f), vf2d(1.0f, 0.0f) };
+		float pW[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+		Pixel pTint = White;
+
 	private:
 		void pCreateTexture();
 		void pDeleteTexture();
 		void pUploadTexture();
 		void pApplyTexture();
-	};
-
-	struct ComplexSprite {
-		Sprite* sprite = nullptr;
-		vf2d pos[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f) };
-		vf2d uv[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 1.0f), vf2d(1.0f, 1.0f), vf2d(1.0f, 0.0f) };
-		float w[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
-		Pixel tint = White;
 	};
 
 	class Window {
@@ -392,7 +403,6 @@ namespace pixel {
 	};
 }
 
-
 /*
 ____________________________
 
@@ -442,6 +452,7 @@ namespace pixel {
 
 		if(bmp->GetLastStatus() != Gdiplus::Ok) {
 			pSize = vu2d(0, 0);
+			delete bmp;
 			return;
 		}
 
