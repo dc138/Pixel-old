@@ -40,3 +40,5 @@ pushes the **buffer** into view.
 
 The user may interogate the **mouse position** and **keyboard state** 
 with the provided `Window::MousePos()` and `Window::KeyboardKey()` functions.
+
+**FULL README COMMING SOON**
