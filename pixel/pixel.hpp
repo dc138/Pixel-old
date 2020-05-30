@@ -242,21 +242,25 @@ namespace pixel {
 		void Clear();
 
 	private:
-		vu2d pSize = {};
+		vu2d pSize;
+		vf2d pUvScale = vf2d(1.0f, 1.0f);
 
 		Pixel* pBuffer = nullptr;
 		uint32_t pBufferId = 0;
-
-		vf2d pos[4] = { { 0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f}, {0.0f, 0.0f} };
-		vf2d uv[4] = { { 0.0f, 0.0f}, {0.0f, 1.0f}, {1.0f, 1.0f}, {1.0f, 0.0f} };
-		float w[4] = { 1, 1, 1, 1 };
-		Pixel tint;
 
 	private:
 		void pCreateTexture();
 		void pDeleteTexture();
 		void pUploadTexture();
 		void pApplyTexture();
+	};
+
+	struct ComplexSprite {
+		Sprite* sprite = nullptr;
+		vf2d pos[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f) };
+		vf2d uv[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 1.0f), vf2d(1.0f, 1.0f), vf2d(1.0f, 0.0f) };
+		float w[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+		Pixel tint = White;
 	};
 
 	class Window {
@@ -286,6 +290,15 @@ namespace pixel {
 
 		void DrawTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel);
 		void FillTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel);
+
+		void DrawSprite(const vf2d& pos, Sprite* sprite, const vf2d& scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
+		void DrawPartialSprite(const vf2d& pos, const vf2d& spos, const vf2d& ssize, Sprite* sprite, const vf2d& scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
+
+		void DrawWarpedSprite(Sprite* sprite, std::array<vf2d, 4>& pos, const Pixel& tint = White);
+		void DrawPartialWarpedSprite(Sprite* sprite, std::array<vf2d, 4>& post, const vf2d& spos, const vf2d& ssize, const Pixel& tint = White);
+
+		void DrawRotatedSprite(const vf2d& pos, Sprite* sprite, float alpha, const vf2d& center = vf2d(0.0f, 0.0f), const vf2d scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
+		void DrawPartialRotatedSprite(const vf2d& pos, Sprite* sprite, float alpha, const vf2d& spos, const vf2d& ssize, const vf2d& center = vf2d(0.0f, 0.0f), const vf2d scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
 
 	public:
 		bool ShouldExist() const;

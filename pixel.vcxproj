@@ -162,6 +162,9 @@
   <ItemGroup>
     <ClCompile Include="demos\sprites.cpp" />
   </ItemGroup>
+  <ItemGroup>
+    <Image Include="demos\sprites.bmp" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

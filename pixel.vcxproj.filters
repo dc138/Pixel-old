@@ -7,10 +7,13 @@
     <None Include="README.md" />
     <None Include=".gitignore" />
     <None Include="LICENSE.md" />
+    <None Include="demos\gravitation.cpp" />
+    <None Include="demos\randomlines.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Demos\randomlines.cpp" />
-    <ClCompile Include="Demos\gravitation.cpp" />
     <ClCompile Include="demos\sprites.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Image Include="demos\sprites.bmp" />
   </ItemGroup>
 </Project>
