@@ -1,13 +1,13 @@
 /*
-                    _________________________
-					
-                        The pixel library
-                    _________________________
+                            _________________________
+					        
+                                The pixel library
+                            _________________________
 
 
     This is a single file object oriented library to more easily  create fast 
-	graphical c++ applications that abstracts the  creation of windows and makes 
-	using opengl much easier.
+    phical c++ applications that abstracts the  creation of windows and makes 
+    ng opengl much easier.
 
     Copyright (c) 2020 Antonio de Haro
     
@@ -249,23 +249,20 @@ namespace pixel {
 	class Sprite {
 
 	public:
-		Sprite();
-		Sprite(vu2d size);
 		Sprite(const std::string& filename);
 		~Sprite();
 
 		friend class Window;
 
 	public:
-		void Resize(vu2d size);
-		void Clear();
+		void Update();
 
 	private:
 		vu2d pSize;
 		vf2d pUvScale = vf2d(1.0f, 1.0f);
 
 		Pixel* pBuffer = nullptr;
-		uint32_t pBufferId = 0;
+		uint32_t pBufferId = 0xFFFFFFFF;
 
 		vf2d pPos[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f), vf2d(0.0f, 0.0f) };
 		vf2d pUv[4] = { vf2d(0.0f, 0.0f), vf2d(0.0f, 1.0f), vf2d(1.0f, 1.0f), vf2d(1.0f, 0.0f) };
@@ -338,11 +335,17 @@ namespace pixel {
 		float ElapsedTime() const;
 		uint32_t FPS() const;
 
+	public:
+		Window(const Window& other) = delete;
+		Window& operator=(const Window& other) = delete;
+
 	private:
 		vu2d pWindowSize;
 		vu2d pWindowPos;
 
 		vu2d pScreenSize;
+		vf2d pInvScreenSize;
+
 		uint8_t pScale;
 
 		vu2d pViewSize;
@@ -399,8 +402,10 @@ namespace pixel {
 		void pUpdateViewport();
 
 	private:
-		Sprite pCanvas;
-		std::vector<Sprite*> sprites;
+		Pixel* pBuffer = nullptr;
+		uint32_t pBufferId = 0xFFFFFFFF;
+
+		std::vector<Sprite*> pSprites;
 		pixel::DrawingMode pDrawingMode = pixel::DrawingMode::NO_ALPHA;
 
 		HDC pDevideContext = NULL;
@@ -415,7 +420,6 @@ ____________________________
 ____________________________
 
 */
-
 
 namespace pixel {
 
@@ -442,15 +446,6 @@ namespace pixel {
 		n = red | (green << 8) | (blue << 16) | (alpha << 24);
 	}
 
-	inline Sprite::Sprite() {
-		pSize = vu2d(0, 0);
-	}
-
-	inline Sprite::Sprite(vu2d size): pSize(size) {
-		pBuffer = new Pixel[size.prod()];
-		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
-	}
-
 	inline Sprite::Sprite(const std::string& filename) {
 		Gdiplus::Bitmap* bmp = Gdiplus::Bitmap::FromFile(s2ws(filename).c_str());
 		Gdiplus::Color color;
@@ -462,6 +457,7 @@ namespace pixel {
 		}
 
 		pSize = vu2d(bmp->GetWidth(), bmp->GetHeight());
+		pUvScale = vf2d(1.0f / float(pSize.x), 1.0f / float(pSize.y));
 		pBuffer = new Pixel[pSize.prod()];
 	
 		for(uint32_t i = 0; i < pSize.prod(); i++) {
@@ -469,30 +465,31 @@ namespace pixel {
 			pBuffer[i] = Pixel(color.GetRed(), color.GetGreen(), color.GetBlue(), color.GetAlpha());
 		}
 
+		pCreateTexture();
+		pApplyTexture();
+		pUploadTexture();
+
 		delete bmp;
 	}
 
 	inline Sprite::~Sprite() {
-		pDeleteTexture();
-
-		if(pBuffer) {
-			delete[] pBuffer;
-		}
-	}
-
-	inline void Sprite::Resize(vu2d size) {
 		if(pBuffer) {
 			delete[] pBuffer;
 		}
 
-		pSize = size;
-
-		pBuffer = new Pixel[size.prod()];
-		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
+		if(pBufferId != 0xFFFFFFFF) {
+			pDeleteTexture();
+		}
 	}
 
-	inline void Sprite::Clear() {
-		memset(pBuffer, 0x00, pSize.prod() * sizeof(Pixel));
+	inline void pixel::Sprite::Update() {
+		if(pBufferId != 0xFFFFFFFF) {
+			pDeleteTexture();
+		}
+
+		pCreateTexture();
+		pApplyTexture();
+		pUploadTexture();
 	}
 
 	inline void Sprite::pCreateTexture() {
@@ -851,6 +848,7 @@ namespace pixel {
 		pWindowPos = position;
 
 		pScreenSize = size;
+		pInvScreenSize = vf2d(1.0f / size.x, 1.0f / size.y);
 		pScale = scale;
 
 		pWindowName = name;
@@ -863,7 +861,8 @@ namespace pixel {
 
 		pShouldExist = true;
 
-		pCanvas.Resize(size);
+		pBuffer = new Pixel[size.prod()];
+		memset(pBuffer, 0x00, size.prod() * sizeof(Pixel));
 
 		pCreateWindow();
 		pUpdateViewport();
@@ -873,6 +872,9 @@ namespace pixel {
 		glEnable(GL_TEXTURE_2D);
 		glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
 
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
 		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
 
 		pMapKeyboard();
@@ -880,8 +882,13 @@ namespace pixel {
 		pClock1 = std::chrono::system_clock::now();
 		pClock2 = std::chrono::system_clock::now();
 
-		pCanvas.pCreateTexture();
-		pCanvas.pUploadTexture();
+		glGenTextures(1, &pBufferId);
+		glBindTexture(GL_TEXTURE_2D, pBufferId);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
 	}
 
 	void Window::pCreateDevice() {
@@ -929,7 +936,6 @@ namespace pixel {
 	}
 
 	void Window::Update() {
-
 		pClock2 = std::chrono::system_clock::now();
 		pElapsedTimer = pClock2 - pClock1;
 		pClock1 = pClock2;
@@ -999,16 +1005,15 @@ namespace pixel {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
-		glEnable(GL_TEXTURE_2D);
-		glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
-
 		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
 
-		pCanvas.pApplyTexture();
-		pCanvas.pUploadTexture();
+		glBindTexture(GL_TEXTURE_2D, pBufferId);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pScreenSize.x, pScreenSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
 
 		glBegin(GL_QUADS);
+
 		glColor4ub(255, 255, 255, 255);
+
 		glTexCoord2f(0.0f, 1.0f);
 		glVertex3f(-1.0f, -1.0f, 0.0f);
 		glTexCoord2f(0.0f, 0.0f);
@@ -1017,13 +1022,30 @@ namespace pixel {
 		glVertex3f(1.0f, 1.0f, 0.0f);
 		glTexCoord2f(1.0f, 1.0f);
 		glVertex3f(1.0f, -1.0f, 0.0f);
+
 		glEnd();
+
+		for(auto& s : pSprites) {
+			glBindTexture(GL_TEXTURE_2D, s->pBufferId);
+			glBegin(GL_QUADS);
+
+			glColor4ub(s->pTint.r, s->pTint.g, s->pTint.b, s->pTint.a);
+			
+			glTexCoord4f(s->pUv[0].x, s->pUv[0].y, 0.0f, s->pW[0]); glVertex2f(s->pPos[0].x, s->pPos[0].y);
+			glTexCoord4f(s->pUv[1].x, s->pUv[1].y, 0.0f, s->pW[1]); glVertex2f(s->pPos[1].x, s->pPos[1].y);
+			glTexCoord4f(s->pUv[2].x, s->pUv[2].y, 0.0f, s->pW[2]); glVertex2f(s->pPos[2].x, s->pPos[2].y);
+			glTexCoord4f(s->pUv[3].x, s->pUv[3].y, 0.0f, s->pW[3]); glVertex2f(s->pPos[3].x, s->pPos[3].y);
+
+			glEnd();
+		}
+
+		pSprites.clear();
 
 		SwapBuffers(pDevideContext);
 	}
 
 	inline void Window::Clear() {
-		pCanvas.Clear();
+		
 	}
 
 	inline void Window::Draw(const vu2d& pos, const Pixel& pixel) {
@@ -1035,7 +1057,7 @@ namespace pixel {
 		if(pos.y >= pScreenSize.y) return;
 
 		if(pDrawingMode == DrawingMode::FULL_ALPHA) {
-			Pixel d = pCanvas.pBuffer[pos.y * pScreenSize.x + pos.x];
+			Pixel d = pBuffer[pos.y * pScreenSize.x + pos.x];
 
 			float a = (float) (pixel.a / 255.0f);
 			float c = 1.0f - a;
@@ -1044,13 +1066,13 @@ namespace pixel {
 			float g = a * (float) pixel.g + c * (float) d.g;
 			float b = a * (float) pixel.b + c * (float) d.b;
 
-			pCanvas.pBuffer[pos.y * pScreenSize.x + pos.x] = Pixel((uint8_t) r, (uint8_t) g, (uint8_t) b);
+			pBuffer[pos.y * pScreenSize.x + pos.x] = Pixel((uint8_t) r, (uint8_t) g, (uint8_t) b);
 
 		} else if(pDrawingMode == DrawingMode::NO_ALPHA) {
-			pCanvas.pBuffer[pos.y * pScreenSize.x + pos.x] = pixel;
+			pBuffer[pos.y * pScreenSize.x + pos.x] = pixel;
 
 		} else if(pixel.a == 255) {
-			pCanvas.pBuffer[pos.y * pScreenSize.x + pos.x] = pixel;
+			pBuffer[pos.y * pScreenSize.x + pos.x] = pixel;
 		}
 	}
 
@@ -1233,11 +1255,14 @@ namespace pixel {
 			while(i < dx1) {
 				i++;
 				e1 += dy1;
+
 				while(e1 >= dx1) {
 					e1 -= dx1;
+
 					if(changed1) t1xp = signx1;
 					else          goto next1;
 				}
+
 				if(changed1) break;
 				else t1x += signx1;
 			}
@@ -1246,33 +1271,43 @@ namespace pixel {
 
 			while(1) {
 				e2 += dy2;
+
 				while(e2 >= dx2) {
 					e2 -= dx2;
+
 					if(changed2) t2xp = signx2;
 					else          goto next2;
 				}
+
 				if(changed2)     break;
 				else              t2x += signx2;
 			}
+
 			next2:
+
 			if(minx > t1x) minx = t1x;
 			if(minx > t2x) minx = t2x;
 			if(maxx < t1x) maxx = t1x;
 			if(maxx < t2x) maxx = t2x;
+
 			drawline(minx, maxx, y);
 
 			if(!changed1) t1x += signx1;
 			t1x += t1xp;
+
 			if(!changed2) t2x += signx2;
 			t2x += t2xp;
+
 			y += 1;
 			if(y == pos2.y) break;
 
 		}
+
 		next:
 
 		dx1 = (int) (pos3.x - pos2.x); if(dx1 < 0) { dx1 = -dx1; signx1 = -1; } else signx1 = 1;
 		dy1 = (int) (pos3.y - pos2.y);
+
 		t1x = pos2.x;
 
 		if(dy1 > dx1) {
@@ -1284,43 +1319,77 @@ namespace pixel {
 
 		for(int i = 0; i <= dx1; i++) {
 			t1xp = 0; t2xp = 0;
+
 			if(t1x < t2x) { minx = t1x; maxx = t2x; } else { minx = t2x; maxx = t1x; }
 
 			while(i < dx1) {
 				e1 += dy1;
+
 				while(e1 >= dx1) {
 					e1 -= dx1;
 					if(changed1) { t1xp = signx1; break; } else goto next3;
 				}
+
 				if(changed1) break;
 				else   	   	  t1x += signx1;
 				if(i < dx1) i++;
 			}
+
 			next3:
 
 			while(t2x != pos3.x) {
 				e2 += dy2;
+
 				while(e2 >= dx2) {
 					e2 -= dx2;
 					if(changed2) t2xp = signx2;
 					else          goto next4;
 				}
+
 				if(changed2)     break;
 				else              t2x += signx2;
 			}
+
 			next4:
 
 			if(minx > t1x) minx = t1x;
 			if(minx > t2x) minx = t2x;
 			if(maxx < t1x) maxx = t1x;
 			if(maxx < t2x) maxx = t2x;
+
 			drawline(minx, maxx, y);
+
 			if(!changed1) t1x += signx1;
 			t1x += t1xp;
+
 			if(!changed2) t2x += signx2;
 			t2x += t2xp;
+
 			y += 1;
 			if(y > (int32_t)pos3.y) return;
 		}
+	}
+	
+	inline void Window::DrawSprite(const vf2d& pos, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
+		vf2d newpos =
+		{
+			(pos.x * pInvScreenSize.x) * 2.0f - 1.0f,
+			((pos.y * pInvScreenSize.y) * 2.0f - 1.0f) * -1.0f
+		};
+
+		vf2d newsize =
+		{
+			newpos.x + (2.0f * (float(sprite->pSize.x) * pInvScreenSize.x)) * scale.x,
+			newpos.y - (2.0f * (float(sprite->pSize.y) * pInvScreenSize.y)) * scale.y
+		};
+
+		sprite->pTint = tint;
+
+		sprite->pPos[0] = { newpos.x, newpos.y };
+		sprite->pPos[1] = { newpos.x, newsize.y };
+		sprite->pPos[2] = { newsize.x, newsize.y };
+		sprite->pPos[3] = { newsize.x, newpos.y };
+		
+		pSprites.push_back(sprite);
 	}
 }

@@ -14,6 +14,7 @@
     <ClCompile Include="demos\sprites.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="demos\sprites.bmp" />
+    <Image Include="demos\sprites.png" />
+    <Image Include="pixel.jpg" />
   </ItemGroup>
 </Project>
