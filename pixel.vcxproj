@@ -164,7 +164,8 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="demos\sprites.cpp" />
+    <ClCompile Include="demos\partialsprites.cpp" />
+    <None Include="demos\sprites.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="demos\sprites.png" />

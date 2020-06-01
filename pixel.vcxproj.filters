@@ -12,6 +12,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="demos\sprites.cpp" />
+    <ClCompile Include="demos\partialsprites.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="demos\sprites.png" />

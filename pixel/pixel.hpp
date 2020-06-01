@@ -5,10 +5,22 @@
                             _________________________
 
 
-    This is a single file object oriented library to more easily  create fast 
-    phical c++ applications that abstracts the  creation of windows and makes 
-    ng opengl much easier.
-
+    ABOUT:
+    ~~~~~
+    
+    A single file object oriented library to more easily create fast graphical
+    c++ applications that abstracts the  creation of windows and makes usng 
+    opengl much easier.
+    
+    It is intended to help newer programmers more easily make their first graphical 
+    application to learn the basics of 2d graphics, and later 3d graphics.
+    
+    Only windows build are supported at the moment, as this library makes use of
+    the Win32 API. Linux support may come in the future.
+    
+    LICENSE:
+    ~~~~~~~
+    
     Copyright (c) 2020 Antonio de Haro
     
     Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,6 +49,8 @@
 	#define PIXEL_WIN_64
 #elif defined(_WIN32)
 	#define PIXEL_WIN_32
+#else
+	#error "Unsupported platform."
 #endif
 
 #ifdef _MSC_VER
@@ -1031,10 +1045,14 @@ namespace pixel {
 
 			glColor4ub(s->pTint.r, s->pTint.g, s->pTint.b, s->pTint.a);
 			
-			glTexCoord4f(s->pUv[0].x, s->pUv[0].y, 0.0f, s->pW[0]); glVertex2f(s->pPos[0].x, s->pPos[0].y);
-			glTexCoord4f(s->pUv[1].x, s->pUv[1].y, 0.0f, s->pW[1]); glVertex2f(s->pPos[1].x, s->pPos[1].y);
-			glTexCoord4f(s->pUv[2].x, s->pUv[2].y, 0.0f, s->pW[2]); glVertex2f(s->pPos[2].x, s->pPos[2].y);
-			glTexCoord4f(s->pUv[3].x, s->pUv[3].y, 0.0f, s->pW[3]); glVertex2f(s->pPos[3].x, s->pPos[3].y);
+			glTexCoord4f(s->pUv[0].x, s->pUv[0].y, 0.0f, s->pW[0]); 
+			glVertex2f(s->pPos[0].x, s->pPos[0].y);
+			glTexCoord4f(s->pUv[1].x, s->pUv[1].y, 0.0f, s->pW[1]); 
+			glVertex2f(s->pPos[1].x, s->pPos[1].y);
+			glTexCoord4f(s->pUv[2].x, s->pUv[2].y, 0.0f, s->pW[2]); 
+			glVertex2f(s->pPos[2].x, s->pPos[2].y);
+			glTexCoord4f(s->pUv[3].x, s->pUv[3].y, 0.0f, s->pW[3]); 
+			glVertex2f(s->pPos[3].x, s->pPos[3].y);
 
 			glEnd();
 		}
@@ -1390,6 +1408,37 @@ namespace pixel {
 		sprite->pPos[2] = { newsize.x, newsize.y };
 		sprite->pPos[3] = { newsize.x, newpos.y };
 		
+		pSprites.push_back(sprite);
+	}
+
+	inline void Window::DrawPartialSprite(const vf2d& pos, const vf2d& spos, const vf2d& ssize, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
+		vf2d newpos =
+		{
+			(pos.x * pInvScreenSize.x) * 2.0f - 1.0f,
+			((pos.y * pInvScreenSize.y) * 2.0f - 1.0f) * -1.0f
+		};
+
+		vf2d newsize =
+		{
+			newpos.x + (2.0f * ssize.x * pInvScreenSize.x) * scale.x,
+			newpos.y - (2.0f * ssize.y * pInvScreenSize.y) * scale.y
+		};
+	
+		sprite->pTint = tint;
+
+		sprite->pPos[0] = { newpos.x, newpos.y };
+		sprite->pPos[1] = { newpos.x, newsize.y };
+		sprite->pPos[2] = { newsize.x, newsize.y };
+		sprite->pPos[3] = { newsize.x, newpos.y };
+
+		vf2d uvtl = spos * sprite->pUvScale;
+		vf2d uvbr = uvtl + (ssize * sprite->pUvScale);
+
+		sprite->pUv[0] = { uvtl.x, uvtl.y }; 
+		sprite->pUv[1] = { uvtl.x, uvbr.y };
+		sprite->pUv[2] = { uvbr.x, uvbr.y }; 
+		sprite->pUv[3] = { uvbr.x, uvtl.y };
+
 		pSprites.push_back(sprite);
 	}
 }
