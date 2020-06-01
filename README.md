@@ -13,7 +13,11 @@ It is intended to help newer programmers more easily make their
 first graphical application to learn the basics of 2d graphics, and
 later 3d graphics.
 
-# Compiling
+## Licensing
+
+The pixel library is hosted on github and released under the MIT license.
+
+#3 Compiling
 
 This repository contains the **pixel.hpp** header file, which 
 should be the only thing needed, as it is a single file solution.
@@ -26,7 +30,7 @@ open the solution on **Visual Studio** and select the proper demo
 file by editing it's properties and making it a **'C/C++ source
 file"**.
 
-# Features
+## Features
 
 This **library** provides easy creation of **windows** with the use of
 the `Window` class. When creating a window, the user must specify
