@@ -17,7 +17,7 @@ later 3d graphics.
 
 The pixel library is hosted on github and released under the MIT license.
 
-#3 Compiling
+## Compiling
 
 This repository contains the **pixel.hpp** header file, which 
 should be the only thing needed, as it is a single file solution.
