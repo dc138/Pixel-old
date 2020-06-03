@@ -11,7 +11,7 @@
 using namespace pixel;
 
 int main() {
-	Window window(vu2d(500, 500), 2, vu2d(500, 5), "Sprites", DrawingMode::FULL_ALPHA);
+	Application window(vu2d(500, 500), 2, vu2d(500, 5), "Sprites", DrawingMode::FULL_ALPHA);
 	
 	Sprite sprite("D:\\dev\\cpp\\pixel\\demos\\partialsprites.jpg");
 

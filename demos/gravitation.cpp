@@ -12,7 +12,7 @@
 using namespace pixel;
 
 int main() {
-	Window window(vu2d(500, 500), 2, vu2d(500, 5), "Gravitation", DrawingMode::NO_ALPHA);
+	Application window(vu2d(500, 500), 2, vu2d(500, 5), "Gravitation", DrawingMode::NO_ALPHA);
 
 	float px1 = 250, py1 = 250;
 	float sx1 = 0, sy1 = 0;

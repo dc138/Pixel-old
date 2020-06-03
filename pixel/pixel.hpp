@@ -70,6 +70,7 @@
 #include <atomic>
 #include <vector>
 #include <memory>
+#include <thread>
 
 #include <Windows.h>
 #include <gdiplus.h>
@@ -266,7 +267,7 @@ namespace pixel {
 		Sprite(const std::string& filename);
 		~Sprite();
 
-		friend class Window;
+		friend class Application;
 
 	public:
 		void Update();
@@ -290,22 +291,29 @@ namespace pixel {
 		void pApplyTexture();
 	};
 
-	class Window {
+	class Application {
 
 	public:
-		Window(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, DrawingMode mode = DrawingMode::NO_ALPHA, bool fullScreen = false, bool vsync = false);
-		//~Window();
+		Application() {}
 
 	public:
+		void Launch(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, DrawingMode mode = DrawingMode::NO_ALPHA, bool fullScreen = false, bool vsync = false);
+
+	public:
+		Application(const Application& other) = delete;
+		Application& operator=(const Application& other) = delete;
+
+	protected:
+		virtual bool OnCreate();
+		virtual bool OnUpdate(float et);
+
+	protected:
 		void Close();
 
 		void SetName(const std::string& name);
 		void SetDrawingMode(pixel::DrawingMode mode);
 
-	public:
-		void Update();
-		void Clear();
-
+	protected:
 		void Draw(const vu2d& pos, const Pixel& pixel);
 		void DrawLine(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel);
 
@@ -327,7 +335,7 @@ namespace pixel {
 		void DrawRotatedSprite(const vf2d& pos, Sprite* sprite, float alpha, const vf2d& center = vf2d(0.0f, 0.0f), const vf2d scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
 		void DrawPartialRotatedSprite(const vf2d& pos, Sprite* sprite, float alpha, const vf2d& spos, const vf2d& ssize, const vf2d& center = vf2d(0.0f, 0.0f), const vf2d scale = vf2d(1.0f, 1.0f), const Pixel& tint = White);
 
-	public:
+	protected:
 		bool ShouldExist() const;
 		pixel::DrawingMode DrawingMode() const;
 
@@ -349,11 +357,7 @@ namespace pixel {
 		float ElapsedTime() const;
 		uint32_t FPS() const;
 
-	public:
-		Window(const Window& other) = delete;
-		Window& operator=(const Window& other) = delete;
-
-	private:
+	protected:
 		vu2d pWindowSize;
 		vu2d pWindowPos;
 
@@ -400,6 +404,9 @@ namespace pixel {
 		uint32_t pFrameRate = 0;
 
 	private:
+		void Update();
+		void EngineThread();
+
 		static LRESULT CALLBACK pStaticWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam);
 		LRESULT pWinProc(UINT uMsg, WPARAM wParam, LPARAM lParam);
 
@@ -526,7 +533,7 @@ namespace pixel {
 		glBindTexture(GL_TEXTURE_2D, pBufferId);
 	}
 
-	LRESULT Window::pWinProc(UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	LRESULT Application::pWinProc(UINT uMsg, WPARAM wParam, LPARAM lParam) {
 		switch(uMsg) {
 			case WM_CLOSE:
 			{
@@ -620,17 +627,48 @@ namespace pixel {
 		}
 	}
 
-	LRESULT CALLBACK Window::pStaticWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-		Window* window = nullptr;
+	inline void Application::EngineThread() {
+		pCreateDevice();
+
+		glEnable(GL_TEXTURE_2D);
+		glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+
+		glEnable(GL_BLEND);
+		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
+
+		pMapKeyboard();
+
+		pClock1 = std::chrono::system_clock::now();
+		pClock2 = std::chrono::system_clock::now();
+
+		glGenTextures(1, &pBufferId);
+		glBindTexture(GL_TEXTURE_2D, pBufferId);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, pScreenSize.x, pScreenSize.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
+
+		pShouldExist = OnCreate();
+
+		while(pShouldExist) {
+			Update();
+		}
+	}
+
+	LRESULT CALLBACK Application::pStaticWinProc(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+		Application* window = nullptr;
 
 		if(uMsg == WM_NCCREATE) {
-			window = static_cast<Window*>(reinterpret_cast<LPCREATESTRUCT>(lParam)->lpCreateParams);
+			window = static_cast<Application*>(reinterpret_cast<LPCREATESTRUCT>(lParam)->lpCreateParams);
 			window->pHwnd = hWnd;
 
 			SetWindowLongPtr(hWnd, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(window));
 
 		} else {
-			window = reinterpret_cast<Window*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
+			window = reinterpret_cast<Application*>(GetWindowLongPtr(hWnd, GWLP_USERDATA));
 		}
 
 		if(window) {
@@ -640,7 +678,7 @@ namespace pixel {
 		return DefWindowProc(hWnd, uMsg, wParam, lParam);
 	}
 
-	void Window::pUpdateViewport() {
+	void Application::pUpdateViewport() {
 
 		int32_t ww = pScreenSize.x * pScale;
 		int32_t wh = pScreenSize.y * pScale;
@@ -657,56 +695,56 @@ namespace pixel {
 		pViewPos = (pWindowSize - pViewSize) / 2;
 	}
 
-	inline bool Window::ShouldExist() const {
+	inline bool Application::ShouldExist() const {
 		return pShouldExist;
 	}
-	inline pixel::DrawingMode Window::DrawingMode() const {
+	inline pixel::DrawingMode Application::DrawingMode() const {
 		return pDrawingMode;
 	}
 
-	inline vu2d Window::DrawableSize() const {
+	inline vu2d Application::DrawableSize() const {
 		return pScreenSize - 1;
 	}
-	inline vu2d Window::ScreenSize() const {
+	inline vu2d Application::ScreenSize() const {
 		return pScreenSize;
 	}
 
-	inline vu2d Window::WindowSize() const {
+	inline vu2d Application::WindowSize() const {
 		return pWindowSize;
 	}
-	inline vu2d Window::WindowPos() const {
+	inline vu2d Application::WindowPos() const {
 		return pWindowPos;
 	}
 
-	inline vu2d Window::MousePos() const {
+	inline vu2d Application::MousePos() const {
 		return pMousePos;
 	}
-	inline uint32_t Window::MouseWheel() const {
+	inline uint32_t Application::MouseWheel() const {
 		return pMouseWheel;
 	}
 
-	inline Button Window::MouseLeft() const {
+	inline Button Application::MouseLeft() const {
 		return pMouseButtons[0];
 	}
-	inline Button Window::MouseRight() const {
+	inline Button Application::MouseRight() const {
 		return pMouseButtons[1];
 	}
-	inline Button Window::MouseMiddle() const {
+	inline Button Application::MouseMiddle() const {
 		return pMouseButtons[2];
 	}
 
-	inline Button Window::KeyboardKey(Key key) const {
+	inline Button Application::KeyboardKey(Key key) const {
 		return pKeyboardKeys[(uint8_t) key];
 	}
 
-	inline float Window::ElapsedTime() const {
+	inline float Application::ElapsedTime() const {
 		return pElapsedTime;
 	}
-	inline uint32_t Window::FPS() const {
+	inline uint32_t Application::FPS() const {
 		return pFrameRate;
 	}
 
-	void Window::pCreateWindow() {
+	void Application::pCreateWindow() {
 
 		WNDCLASS wc;
 
@@ -769,7 +807,7 @@ namespace pixel {
 		SetWindowTextA(pHwnd, pWindowTittle.c_str());
 	}
 
-	void Window::pMapKeyboard() {
+	void Application::pMapKeyboard() {
 		pKeyMap[0x00] = (uint8_t) Key::NONE;
 
 		pKeyMap[0x41] = (uint8_t) Key::A;
@@ -852,8 +890,7 @@ namespace pixel {
 		pKeyMap[VK_DECIMAL] = (uint8_t) Key::NP_DECIMAL;
 	}
 
-	Window::Window(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, pixel::DrawingMode mode, bool fullScreen, bool vsync) {
-
+	inline void Application::Launch(const vu2d& size, uint8_t scale, const vu2d& position, const std::string& name, pixel::DrawingMode mode, bool fullScreen, bool vsync) {
 		if(scale <= 0 || size.x <= 0 || size.y <= 0) {
 			throw std::runtime_error("Invalid screen proportions.");
 		}
@@ -881,31 +918,25 @@ namespace pixel {
 		pCreateWindow();
 		pUpdateViewport();
 
-		pCreateDevice();
+		std::thread t = std::thread(&Application::EngineThread, this);
 
-		glEnable(GL_TEXTURE_2D);
-		glHint(GL_PERSPECTIVE_CORRECTION_HINT, GL_NICEST);
+		while(pShouldExist) {
+			PeekMessageW(&pMsg, pHwnd, 0, 0, PM_REMOVE);
+			DispatchMessageW(&pMsg);
+		}
 
-		glEnable(GL_BLEND);
-		glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
-		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
-
-		pMapKeyboard();
-
-		pClock1 = std::chrono::system_clock::now();
-		pClock2 = std::chrono::system_clock::now();
-
-		glGenTextures(1, &pBufferId);
-		glBindTexture(GL_TEXTURE_2D, pBufferId);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-		glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
-
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, size.x, size.y, 0, GL_RGBA, GL_UNSIGNED_BYTE, pBuffer);
+		t.join();
 	}
 
-	void Window::pCreateDevice() {
+	inline bool Application::OnCreate() {
+		return true;
+	}
+
+	inline bool Application::OnUpdate(float et) {
+		return false;
+	}
+
+	void Application::pCreateDevice() {
 
 		pDevideContext = GetDC(pHwnd);
 
@@ -933,23 +964,23 @@ namespace pixel {
 		if(wglSwapInterval && !pVsync) wglSwapInterval(0);
 	}
 
-	inline void Window::pDestroyDevice() {
+	inline void Application::pDestroyDevice() {
 		wglDeleteContext(pRenderContext);
 	}
 
-	inline void Window::Close() {
+	inline void Application::Close() {
 		PostMessageW(pHwnd, WM_CLOSE, 0, 0);
 	}
 
-	inline void Window::SetName(const std::string& name) {
+	inline void Application::SetName(const std::string& name) {
 		pWindowName = name;
 	}
 
-	inline void Window::SetDrawingMode(pixel::DrawingMode mode) {
+	inline void Application::SetDrawingMode(pixel::DrawingMode mode) {
 		pDrawingMode = mode;
 	}
 
-	void Window::Update() {
+	void Application::Update() {
 		pClock2 = std::chrono::system_clock::now();
 		pElapsedTimer = pClock2 - pClock1;
 		pClock1 = pClock2;
@@ -967,9 +998,6 @@ namespace pixel {
 
 			pFrameCount = 0;
 		}
-
-		PeekMessageW(&pMsg, pHwnd, 0, 0, PM_REMOVE);
-		DispatchMessageW(&pMsg);
 
 		for(uint32_t i = 0; i < 3; i++) {
 
@@ -1019,6 +1047,8 @@ namespace pixel {
 		glClear(GL_COLOR_BUFFER_BIT);
 		glClear(GL_DEPTH_BUFFER_BIT);
 
+		pShouldExist = OnUpdate(pElapsedTime);
+
 		glViewport(pViewPos.x, pViewPos.y, pViewSize.x, pViewSize.y);
 
 		glBindTexture(GL_TEXTURE_2D, pBufferId);
@@ -1062,11 +1092,7 @@ namespace pixel {
 		SwapBuffers(pDevideContext);
 	}
 
-	inline void Window::Clear() {
-		
-	}
-
-	inline void Window::Draw(const vu2d& pos, const Pixel& pixel) {
+	inline void Application::Draw(const vu2d& pos, const Pixel& pixel) {
 		if((pos.y * pScreenSize.x + pos.x) > pScreenSize.prod()) return;
 
 		if(pos.x < 0) return;
@@ -1094,7 +1120,7 @@ namespace pixel {
 		}
 	}
 
-	void Window::DrawLine(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
+	void Application::DrawLine(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
 		int32_t x, y, dx, dy, dx1, dy1, px, py, xe, ye, i;
 		dx = pos2.x - pos1.x; dy = pos2.y - pos1.y;
 
@@ -1164,7 +1190,7 @@ namespace pixel {
 		}
 	}
 
-	void Window::DrawCircle(const vu2d& pos, uint32_t radius, const Pixel& pixel) {
+	void Application::DrawCircle(const vu2d& pos, uint32_t radius, const Pixel& pixel) {
 		uint32_t x0 = 0;
 		uint32_t y0 = radius;
 		int d = 3 - 2 * radius;
@@ -1186,7 +1212,7 @@ namespace pixel {
 		}
 	}
 
-	void Window::FillCircle(const vu2d& pos, uint32_t radius, const Pixel& pixel) {
+	void Application::FillCircle(const vu2d& pos, uint32_t radius, const Pixel& pixel) {
 		int x0 = 0;
 		int y0 = radius;
 		int d = 3 - 2 * radius;
@@ -1209,14 +1235,14 @@ namespace pixel {
 		}
 	}
 
-	void Window::DrawRect(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
+	void Application::DrawRect(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
 		DrawLine(vu2d(pos1.x, pos1.y), vu2d(pos1.y, pos2.x), pixel);
 		DrawLine(vu2d(pos1.y, pos2.x), vu2d(pos2.x, pos2.y), pixel);
 		DrawLine(vu2d(pos2.x, pos2.y), vu2d(pos2.y, pos1.x), pixel);
 		DrawLine(vu2d(pos2.y, pos1.x), vu2d(pos1.x, pos1.y), pixel);
 	}
 
-	void Window::FillRect(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
+	void Application::FillRect(const vu2d& pos1, const vu2d& pos2, const Pixel& pixel) {
 		for(uint32_t x = min(pos1.x, pos2.x); x <= max(pos1.x, pos2.x); x++) {
 			for(uint32_t y = min(pos1.y, pos2.y); y <= max(pos1.y, pos2.y); y++) {
 				Draw(vu2d(x, y), pixel);
@@ -1224,13 +1250,13 @@ namespace pixel {
 		}
 	}
 
-	void Window::DrawTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel) {
+	void Application::DrawTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel) {
 		DrawLine(vu2d(pos1.x, pos1.y), vu2d(pos2.x, pos2.y), pixel);
 		DrawLine(vu2d(pos2.x, pos2.y), vu2d(pos3.x, pos3.y), pixel);
 		DrawLine(vu2d(pos3.x, pos3.y), vu2d(pos1.x, pos1.y), pixel);
 	}
 
-	void Window::FillTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel) {
+	void Application::FillTriangle(const vu2d& pos1, const vu2d& pos2, const vu2d& pos3, const Pixel& pixel) {
 		auto drawline = [&] (int sx, int ex, int ny) {
 			for(int i = sx; i <= ex; i++)
 				Draw(vu2d(i, ny), pixel);
@@ -1388,7 +1414,7 @@ namespace pixel {
 		}
 	}
 	
-	inline void Window::DrawSprite(const vf2d& pos, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
+	inline void Application::DrawSprite(const vf2d& pos, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
 		vf2d newpos =
 		{
 			(pos.x * pInvScreenSize.x) * 2.0f - 1.0f,
@@ -1411,7 +1437,7 @@ namespace pixel {
 		pSprites.push_back(sprite);
 	}
 
-	inline void Window::DrawPartialSprite(const vf2d& pos, const vf2d& spos, const vf2d& ssize, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
+	inline void Application::DrawPartialSprite(const vf2d& pos, const vf2d& spos, const vf2d& ssize, Sprite* sprite, const vf2d& scale, const Pixel& tint) {
 		vf2d newpos =
 		{
 			(pos.x * pInvScreenSize.x) * 2.0f - 1.0f,

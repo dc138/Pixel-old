@@ -9,22 +9,28 @@
 #include <pixel.hpp>
 using namespace pixel;
 
-int main() {
-	Window window(vu2d(500, 500), 2, vu2d(500, 5), "Random lines", DrawingMode::FULL_ALPHA);
+class RandomLines: public Application {
 
-	while(window.ShouldExist()) {
-		for(uint32_t i = 0; i < 50; i++) {
-			window.DrawLine(vu2d(rand() % window.ScreenSize().x, rand() % window.ScreenSize().y),
-							vu2d(rand() % window.ScreenSize().x, rand() % window.ScreenSize().y),
-							RandPixel());
+public:
+	inline bool OnUpdate(float et) override {
+		
+		for(uint8_t i = 0; i < 50; i++) {
+			DrawLine(vu2d(rand() % pScreenSize.x, rand() % pScreenSize.y),
+					 vu2d(rand() % pScreenSize.x, rand() % pScreenSize.y),
+					 RandPixel());
 		}
 
-		if(window.KeyboardKey(Key::ESCAPE).pressed) {
-			window.Close();
+		if(KeyboardKey(Key::ESCAPE).pressed) {
+			Close();
 		}
 
-		window.Update();
+		return true;
 	}
+};
 
+int main() {
+	RandomLines application;
+	application.Launch(vu2d(500, 500), 2, vu2d(500, 5), "Random lines", DrawingMode::FULL_ALPHA);
+	
 	return 0;
 }

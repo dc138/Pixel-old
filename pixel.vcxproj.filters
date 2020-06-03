@@ -2,17 +2,15 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClInclude Include="pixel\pixel.hpp" />
+    <ClInclude Include="demos\randomlines.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="README.md" />
     <None Include=".gitignore" />
     <None Include="LICENSE.md" />
     <None Include="demos\gravitation.cpp" />
-    <None Include="demos\randomlines.cpp" />
     <None Include="demos\sprites.cpp" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="demos\partialsprites.cpp" />
+    <None Include="demos\partialsprites.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="demos\sprites.png" />
