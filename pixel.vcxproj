@@ -156,7 +156,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="demos\gravitation.cpp" />
-    <None Include="demos\randomlines.cpp" />
+    <ClInclude Include="demos\randomlines.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include=".gitignore" />
@@ -164,10 +164,11 @@
     <None Include="README.md" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="demos\partialsprites.cpp" />
+    <None Include="demos\partialsprites.cpp" />
     <None Include="demos\sprites.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <Image Include="demos\partialsprites.jpg" />
     <Image Include="demos\sprites.png" />
     <Image Include="pixel.jpg" />
   </ItemGroup>

@@ -9,13 +9,14 @@
     <None Include="LICENSE.md" />
     <None Include="demos\gravitation.cpp" />
     <None Include="demos\randomlines.cpp" />
+    <None Include="demos\sprites.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="demos\sprites.cpp" />
     <ClCompile Include="demos\partialsprites.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="demos\sprites.png" />
     <Image Include="pixel.jpg" />
+    <Image Include="demos\partialsprites.jpg" />
   </ItemGroup>
 </Project>
