@@ -1,6 +1,11 @@
 <img src="pixel.jpg" width=1000>
  
 <img src=https://img.shields.io/badge/License-MIT-brightgreen> <img src=https://img.shields.io/badge/Version-1.2-blue>
+
+<hr/>
+<b>I have started on version 2.0.0, which will be made public in soon. When it does, this project will become deprecated<b/>
+<hr/>
+
 # The pixel Library
 
 This is a **single file**, **object oriented** library to more easily 
